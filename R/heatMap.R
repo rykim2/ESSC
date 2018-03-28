@@ -1,46 +1,67 @@
-testMatrix <- matrix(round(c(runif(10000, 0, 1), runif(10000, 0, 1)), 2),nrow = 50, ncol = 25)
-colnames(testMatrix) = paste(1:25)
+#Download ComplexHeatmap by:
+# library(devtools)
+# install_github("jokergoo/ComplexHeatmap")
 
+#Set up: Load Matrix from ESSC 
+library(ESSC)
+net2 <- stochastic.block(n = 1000, k = 3, P = cbind(c(0.1, 0.01, 0.01), c(0.01, 0.1, 0.01), c(0.01, 0.01, 0.1)), sizes = c(300, 300, 400), random.community.assignment = TRUE)
+results.pois <- essc(net2$Adjacency, alpha = 0.10, Null = "Poisson")
+testMatrix <- results.pois$PValues
 
-heatMap <- function(matrx, kmeans){
-  library(gplots)
+#-----------------------------------Heatmap function-----------------------------#
+
+heatMap <- function(matrx, kRow, kCol){
+  library(ComplexHeatmap)
   library(dendextend)
+  library(circlize)
+  library(grid)
+  
+  # making a dendextend object to color my dendogram branches
   hc.rows <- as.dendrogram(hclust(dist(matrx)))
   hc.cols <- as.dendrogram(hclust(dist(t(matrx))))
-  denRow <- color_branches(hc.rows, heat.colors(299), k = kmeans)
-  denCol <- color_branches(hc.cols, heat.colors(299), k = kmeans)
-  HM <- heatmap.2(matrx, main = "Original Heatmap", col = topo.colors(dim(matrx)[2]), 
-                  trace = "none", density.info = "none", dendrogram = "none", margins = c(5,5))
-  HMRow <- heatmap.2(matrx[cutree(hc.rows, k = kmeans),], trace = "none", Rowv = denRow, 
-                     main = "Ordered by Rows", col = topo.colors(dim(matrx)[2]), dendrogram = "row")
-  HMCol <- heatmap.2(matrx[,cutree(hc.cols, k = kmeans)], Colv = denCol, dendrogram = "column",
-                    main = "Ordered by Columns",col = topo.colors(dim(matrx)[2]), trace = "none")
-  par(mfrow = c(3,1))
+  denRow <- color_branches(hc.rows, heat.colors(299), k = kRow)
+  denCol <- color_branches(hc.cols, heat.colors(299), k = kCol)
+  
+  # Creating my ColorPalette and Lengend for Matrix Values
+  myPalt <- colorRamp2(c(0, 0.5, 1), c("lightyellow", "pink", "orange"))
+  lgd = Legend(at = c( 0, 0.5, 1), col_fun = myPalt, title = "Matrix", title_position = "topleft", grid_height = unit(10, "mm"))
+  
+  
+  # uses the Complex Heatmap object to create graphical objects --> GROB
+  HM <- Heatmap(matrx, column_title = "Original Heatmap", col = myPalt, 
+                show_row_dend = FALSE, show_column_dend = FALSE, show_heatmap_legend = FALSE)
+  
+  HMRow <- Heatmap(matrx, column_title = "Row Heatmap", col = myPalt, 
+                   show_column_dend = FALSE, cluster_rows = denRow, show_heatmap_legend = FALSE)
+  
+  HMCol <- Heatmap(matrx, column_title = "Column Heatmap", col = myPalt, 
+                   show_row_dend = FALSE, cluster_columns = denCol, show_heatmap_legend = FALSE)
 
-  return(c(HM, HMRow, HMCol))
+#------------------------------drawing Heatmap------------------------#
+grid.newpage()
+pushViewport(viewport(width = 0.9, height = 0.9, name = "base"))
+
+seekViewport("base")
+pushViewport(viewport(width = 0.5, height = 0.5, just = c("right", "bottom"), name = "A"))
+draw(HM, newpage = FALSE)
+
+seekViewport("base")
+pushViewport(viewport(width = 0.5, height = 0.5, just = c("left", "bottom"), name = "B"))
+draw(HMRow, newpage = FALSE)
+
+seekViewport("base")
+pushViewport(viewport(width = 0.5, height = 0.5, just = c("right", "top"), name = "C"))
+draw(HMCol, newpage = FALSE)
+
+seekViewport("base")
+pushViewport(viewport(width = 0.5, height=0.5, just = c("left", "top"), name = "D"))
+grid.draw(lgd)
+
+grab <- grid.grab()
+
+return(grid.draw(grab))
 
 }
 
-heatMap(results.pois$PValues, 3)
+heatMap(testMatrix, kRow = 500, kCol = 3)
 
-
-
-
-
-
-
-# -------------------------------ROUGH DRAFT---------------------------------
-testMatrix <- results.pois$PValues
-hc.rows <- as.dendrogram(hclust(dist(testMatrix)))
-hc.cols <- as.dendrogram(hclust(dist(t(testMatrix))))
-denRow <- color_branches(hc.rows, heat.colors(299), k = 10)
-denCol <- color_branches(hc.cols, heat.colors(299), k = 3)
-HMCol <- heatmap.2(testMatrix[,cutree(hc.cols, k = 3)], Colv = denCol, dendrogram = "column",
-                   main = "Ordered by Columns",col = topo.colors(dim(testMatrix)[2]), trace = "none")
-
-hc.rows <- hclust(dist(testMatrix))
-hc.cols <- hclust(dist(t(testMatrix)))
-heatmap.2(testMatrix, main = "Original Heatmap",  ColSideColors = rainbow(ncol(testMatrix)), RowSideColors = cc, col = c("blue", "green"), trace = "none")
-heatmap(scale(testMatrix)[cutree(hc.rows,k=2)== 2,], Colv=as.dendrogram(hc.cols), scale='none', keep.dendro = FALSE)
-heatmap(scale(testMatrix)[cutree(hc.rows,k=4),], Colv=as.dendrogram(hc.cols), scale='column')
-table(cutree(hc.rows, k=6))
