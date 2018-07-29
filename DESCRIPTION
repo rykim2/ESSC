@@ -1,17 +1,15 @@
 Package: ESSC
 Title: Extraction of Statistically Significant Communities
 Version: 0.0.0.9000
-Date: 2016-01-04
-Author: James Wilson
-Maintainer: <jdwilson4@usfca.edu>
-Description: Function essc identifies statistically significant communities in
-    undirected networks. Function stochastic.block() generates a realization of
-    the stochastic block model.
+Date: 2018-05-30
+Authors@R: c(person("James", "Wilson", email = "jdwilson4@usfca.edu", role = c("aut", "cre")), person("Rachel", "Kim", role = "ctb"))
+Description: The Extraction of Statistically Significant Communities (ESSC) package is used to identify statistically significant communities in undirected networks. The ESSC procedure is based on p-values or the strength of connection between a single vertex and a set of vertices under a reference distribution derived from the conditional configuration network model. The procedure automatically selects both the number of communities in the network and their size. Moreover, ESSC can handle overlapping communities and, unlike the majority of existing methods, identifies “background” vertices that do not belong to a well-defined community.
 License: GPL (>= 2)
+Encoding: UTF-8
 Depends:
     R (>= 3.1.2)
 Imports:
     Matrix,
     Rlab
 LazyData: true
-RoxygenNote: 5.0.1.9000
+RoxygenNote: 6.0.1
