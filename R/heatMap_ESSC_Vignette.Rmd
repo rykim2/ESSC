@@ -1,0 +1,192 @@
+---
+title: "ESSC Heatmap Visualization"
+author: "James D. Wilson, Rachel Y. Kim"
+date: "`r Sys.Date()`"
+bibliography: bibliography.bib
+link-citations: true
+nocite: | 
+  @Csardi2006 , @RCoreTeam2018
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  library(igraph),
+  library(ESSC),
+  library(grDevices),  
+  library(ComplexHeatmap),
+  suppressPackageStartupMessages(library(dendextend)),
+  library(circlize),
+  library(colorRamps)
+)
+```
+
+To visualize the ESSC package, one can represent the output through a heatmap. The variety of colors can help to see the found communities given by running the `essc()` function. This was made with the packages: ComplexHeatmap[@Gu2016], dendextend[@Galili2015], and circulize[@Gu2014], colorRamps[@Keitt2012]. Please make sure to install the following packages along with installng the `ComplexHeatmap` package through [Bioconducter](https://bioconductor.org/):
+
+## Installation
+
+```{r install, include = TRUE, eval = FALSE}
+
+##ComplexHeatmap
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite("ComplexHeatmap")
+
+#load other required packages
+library(igraph)
+library(ESSC)
+library(grDevices)
+library(stats4)
+library(dendextend)
+library(circulize)
+library(colorRamps)
+
+```
+
+## Description
+
+The `heatMap()` creates a heatmap to help visualize the communities found by the `essc()` function.
+
+## Usage
+```{r usage, include=TRUE, eval=FALSE}
+heatMap(matrx, k, y = NULL)
+```
+
+## Arguments
+```{r arg, include=TRUE}
+#' @param matrx An nxp numeric matrix with binary or probablistic values between 0 and 1
+#' @param k Numeric value that signifies the number of groups to 
+#' cut the dendrogram (passed in the `color_branches()`
+#' @param y optional response vector. Takes a character string or factor vector 
+#' that sorts heatMap by its true value 
+#' @export
+#' @md
+
+```
+
+## Example
+
+In this example, we will demonstrate using the dataset included in the package. The dataset is collected from a random FaceBook user where the "FB_labels" dataset are labels. Each friend on FB is labeled some value from 1 to 8. Where each category would signify a different association. For example, if a friend is labeled 1 then that can be the group of college friends. 2 can be from the user's hometown, etc. These labels represent the communties found through the ESSC extration technique. The "FB_edgelist" is an edgelist created from the personal FaceBook network. The edgelist is an undirected graph of verticies.
+
+```{r heatMap_func, include = FALSE, eval = TRUE}
+heatMap <- function(matrx, k, y = NULL) {
+  library(ComplexHeatmap)
+  library(dendextend)
+  library(circlize)
+  library(colorRamps)
+
+  y <- as.factor(y)
+  y <- sort(y, levels = y)
+  matrx <- matrx[sort(y), ]
+  
+  if(length(table(matrx)) > 2){
+      myPalt <- colorRamp2(c(0, 0.5, 1), c("blue", "white", "purple"))
+  }
+  
+  else { myPalt <- structure(c("purple", "orange"), names = c("0", "1"))}
+  
+  if (is.null(y) == TRUE) {
+    clust.rows <- hclust(dist(matrx))
+    hc.rows <- as.dendrogram(clust.rows)
+    
+    denRow <- color_branches(hc.rows, heat.colors(299), k = k)
+    
+    HMRow <-
+      Heatmap(
+        matrx,
+        name = "Matrix",
+        col = myPalt,
+        row_dend_reorder = TRUE,
+        show_column_names = FALSE,
+        show_column_dend = FALSE,
+        show_heatmap_legend = TRUE,
+        rect_gp = gpar(col = "white", lwd = 0.5),
+        cluster_rows = denRow
+      )
+    
+    draw(HMRow, newpage = TRUE)
+    
+  }
+  
+  else{
+    try(expr = if (length(y) != nrow(matrx))
+      stop("length of response vector y must be the same as the number of observations",
+           call. = FALSE))
+    
+    if (length(y) == nrow(matrx)) {
+      ## Associating response y and reordering accordingly  ##
+      lev <- length(levels(y))
+      
+      ## HEATMAP ANNOTATION : creating a named- vector
+      colrs <- palette(matlab.like(n = lev))
+      named.vec <- c(structure(colrs, names = levels(y)))
+      
+      ha <- rowAnnotation(
+        df = data.frame(labs = y),
+        name = "truth",
+        width = unit(0.5, "cm"),
+        show_legend = TRUE,
+        col = list(labs = c(named.vec))
+      )
+      
+      ## starting HeatMap function
+      # making a dendextend object to color my dendogram branches
+      clust.rows <- hclust(dist(matrx))
+      
+      hc.rows <- as.dendrogram(clust.rows)
+      denRow <- color_branches(hc.rows, heat.colors(299), k = k)
+      
+      HM <-
+        Heatmap(
+          matrix = matrx,
+          name = "Matrix",
+          col = myPalt,
+          row_dend_reorder = FALSE,
+          show_column_names = FALSE,
+          show_column_dend = FALSE,
+          rect_gp = gpar(col = "white", lwd = 0.5),
+          cluster_rows = denRow,
+          gap = unit(2, "mm")
+        )
+      
+      draw(ha + HM, newpage = TRUE)
+      return(list(Node_Clusters = clust.rows))
+      
+    }
+  }
+}
+
+```
+
+```{r examples, include = TRUE, eval = TRUE, fig.height= 5, fig.width=7}
+#creates an adjaceny matrix
+FB_graph <- graph_from_edgelist(as.matrix(FB_edgelist[, 1:2]), directed = FALSE)
+FB_adjacency <- get.adjacency(FB_graph)
+
+#using the ESSC extration technique to detect network communities and 
+#extrating the Indicator Matrix
+results.FB <- essc(FB_adjacency, alpha = 0.10, Null = "Poisson")
+test <- results.FB$PValues
+test.FB <- results.FB$Indicator_Matrix
+
+#extrating the y vector. The response vector to annotate the heatMap function
+y <- FB_labels$Location
+test <- results.FB$PValues
+
+heatMap(matrx = test.FB, y = y, k = 8)
+```
+
+The heatMap visualizes the `essc()` function by displaying the found communities through the white vertical lines. In this example, the function has found 23 commuities and that is displayed here through the columns of the heatMap output. The **labs** represents the `y` parameter which represents the FaceBook Label of association. In this example, the input is a binary matrix where 1 indicates that it belongs to a community and 0 otherwise. The colored dendrogram on the right side of the heatMap represents the k clusters. 
+
+## References
+
+
+
+
+
